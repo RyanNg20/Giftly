@@ -8,6 +8,13 @@ import Present from "../../components/Present";
 import { config } from "../../lib/config";
 import { isValidAddress, getEthAddress } from "../../lib/utils";
 import { toast } from "react-hot-toast";
+import Account from "../../components/Account";
+import { useWeb3React } from "@web3-react/core";
+import useETHBalance from "../../hooks/useETHBalance";
+import useMetaMaskOnboarding from "../../hooks/useMetaMaskOnboarding";
+import { injected } from "../../connectors";
+import { UserRejectedRequestError } from "@web3-react/injected-connector";
+
 
 const Post = ({ url, short_url, animation, previewImage }) => {
   const [address, setAddress] = useState("");
@@ -17,14 +24,43 @@ const Post = ({ url, short_url, animation, previewImage }) => {
   const [tokens, setTokens] = useState([]);
   const [amounts, setAmounts] = useState([]);
   const [title, setTitle] = useState("");
-  getEthAddress(address).then((holderAddress) => {
-    setAddress(holderAddress);
-  }).catch((error) => {
-    // console.log(error)
-    toast.error("Please input a correct address - or another error :(");
+  const { library, account, activate } = useWeb3React();
+  const { data: balance } = useETHBalance(account);
+  const {
+    isMetaMaskInstalled,
+    isWeb3Available,
+    startOnboarding,
+    stopOnboarding,
+  } = useMetaMaskOnboarding();
+  function connect() {
+    if (!account) {
+      if (isMetaMaskInstalled) {
+        const toastId = toast.loading("Connecting to MetaMask...");
+        activate(injected, undefined, true)
+          .catch((error) => {
+            // ignore the error if it's a user rejected request
+            if (error instanceof UserRejectedRequestError) {
+            } else {
+              toast.error("Error connecting to MetaMask");
+            }
+          })
+          .finally(() => {
+            toast.dismiss(toastId);
+          });
+      } else {
+        startOnboarding();
+      }
+      return;
+    }
+  }
+  // getEthAddress(address).then((holderAddress) => {
+  //   setAddress(holderAddress);
+  // }).catch((error) => {
+  //   // console.log(error)
+  //   toast.error("Please input a correct address - or another error :(");
 
-    // return false;
-  });
+  //   // return false;
+  // });
   const [message, setMessage] = useState("");
   const handleSubmitAddress = () => {
     console.log("submitted address");

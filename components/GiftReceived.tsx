@@ -6,10 +6,17 @@ import Gift from "../images/gift.svg"
 import { Inter } from "@next/font/google";
 
 import Confetti from "react-dom-confetti";
+import { toast } from "react-hot-toast";
 
 // import Giftlyfooter from "../components/footer";
 
 // import GiftlyTop from "../components/giftlytop";
+
+import useETHBalance from "../hooks/useETHBalance";
+import useMetaMaskOnboarding from "../hooks/useMetaMaskOnboarding";
+import { injected } from "../connectors";
+import { UserRejectedRequestError } from "@web3-react/injected-connector";
+import { isValidAddress, getEthAddress } from "../lib/utils";
 
 const inter = Inter({
   variable: "--inter-font",
@@ -42,47 +49,93 @@ export const josefinSans = Josefin_Sans({
 
 // };
 function GiftReceived({ address, setAddress, onSubmitAddress }) {
+
   const [confettiActive, setConfettiActive] = useState(false);
   const sleep = (ms) => {
     return new Promise((resolve) => setTimeout(resolve, ms));
   };
-
+  const { library, account, activate } = useWeb3React();
+  const { data: balance } = useETHBalance(account);
+  const {
+    isMetaMaskInstalled,
+    isWeb3Available,
+    startOnboarding,
+    stopOnboarding,
+  } = useMetaMaskOnboarding();
+  function connect() {
+    if (!account) {
+      if (isMetaMaskInstalled) {
+        const toastId = toast.loading("Connecting to MetaMask...");
+        activate(injected, undefined, true)
+          .catch((error) => {
+            // ignore the error if it's a user rejected request
+            if (error instanceof UserRejectedRequestError) {
+            } else {
+              toast.error("Error connecting to MetaMask");
+            }
+          })
+          .finally(() => {
+            toast.dismiss(toastId);
+          });
+      } else {
+        startOnboarding();
+      }
+      return;
+    }
+  }
   const handleButtonClick = () => {
     onSubmitAddress();
-    setConfettiActive(true);
+    // setConfettiActive(true);
     // sleep(500)
 
     // setConfettiActive(false);
   };
+  console.log(account)
   return (
     <div className="w-[400px] flex flex-col items-center justify-center">
-      <Image src={Gift} alt="picture of a gift" height={56}/>
-      <h2 className={`${inter.className} font-semibold text-white text-[20px] mt-[20px]`}>
+      <Image src={Gift} alt="picture of a gift" height={56} />
+      <h2 className={`${inter.className} font-semibold text-white text-2xl mt-6`}>
         You have received a gift!
       </h2>
-      <h3 className={`${inter.className} font-regular text-white text-[14px]`}>
+      <h3 className={`${inter.className} font-normal text-white text-base mb-8`}>
         Enter your gifting address to unlock
       </h3>
-      <div
-        className="flex flex-row border-1 border-white border rounded-[16px] h-[49px] justify-between items-center mt-[36px] mb-[24px] text-white pl-[14px] pr-[2px] text-[16px]"
+      {/* <div className="flex flex-row border rounded-xl h-12 justify-between items-center mb-8  pl-4 pr-2 text-lg"> */}
+      {/* <input
+      type="text"
+      value={address}
+      placeholder="Enter Wallet Address"
+      onChange={(e) => setAddress(e.target.value)}
+      className="focus:outline-none bg-transparent placeholder-white opacity-50"
+    /> */}
+      <button
+        className="ml-2 bg-gradient-to-r from-purple-500 to-blue-500 p-2 rounded-xl text-white
+      w-44 h-full text-lg font-semibold"
+        onClick={() => {
+          if (account === undefined) {
+            connect();
+          }
+          setAddress(account);
+          handleButtonClick();
+          setTimeout(() => {
+            setAddress(account);
+            onSubmitAddress();
+          }, 500);
+        }}
       >
-        <input
-          type="text"
-          value={address}
-          placeholder="Enter Wallet Address"
-          onChange={(e) => setAddress(e.target.value)}
-          className="focus:outline-none bg-[rgba(0,0,0,0)] placeholder-[rgba(255,255,255,0.5)]"
-        />
-        <button
-          className="ml-2 bg-gradient-to-r from-[#C572E2] to-[#6AC3D7] p-2 rounded-[14px] text-white w-[100px] h-[calc(100%-4px)] text-[16px] font-semibold"
-          onClick={handleButtonClick}
-        >
-          Open
-        </button>
-      </div>
+        {account ? "Open" : "Connect"}
+      </button>
+      {/* <button
+      className="ml-2 bg-gradient-to-r from-purple-500 to-blue-500 p-2 rounded-xl text-white w-32 h-full text-lg font-semibold"
+      onClick={handleButtonClick}
+    >
+      Open
+    </button> */}
+      {/* </div> */}
       <Confetti active={confettiActive} config={config} />
-    {/* <Giftlyfooter /> */}
-  </div>
+      {/* <Giftlyfooter /> */}
+    </div >
+
   );
 }
 
